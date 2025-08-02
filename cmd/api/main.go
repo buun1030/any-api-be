@@ -36,8 +36,18 @@ func main() {
 	r.Handle("/hello", helloHandler).Methods("GET")
 	r.HandleFunc("/items", itemHandler.CreateItem).Methods("POST")
 
+	// Middleware to handle X-Forwarded-Proto header
+	proxyMiddleware := func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if xfp := r.Header.Get("X-Forwarded-Proto"); xfp == "https" {
+				r.URL.Scheme = "https"
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
+
 	c := cors.Default()
-	handler := c.Handler(r)
+	handler := c.Handler(proxyMiddleware(r))
 
 	log.Printf("Starting server on %s\n", cfg.Port)
 	err = http.ListenAndServe(cfg.Port, handler)
